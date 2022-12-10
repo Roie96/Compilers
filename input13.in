@@ -1,0 +1,12 @@
+PROGRAM omer
+	x FIXED;
+	y FIXED;
+{
+    	x=0;
+    	y=0;
+    	WHILE(x < y)
+    	{
+    		y = y -3;
+    	}
+    }
+}

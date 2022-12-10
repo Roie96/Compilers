@@ -1,0 +1,20 @@
+PROGRAM omer
+	a FIXED;
+	b FIXED;
+{
+    IF (a>7) THEN
+        IF (b==TRUE) THEN
+            a=10;
+        ELSE
+            a=25;
+        FI
+    ELSE
+        IF (b==FALSE) THEN
+             b=11;
+        FI
+    FI
+
+    IF (a/=5) THEN
+        b=4;
+    FI
+}

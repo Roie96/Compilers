@@ -1,0 +1,43 @@
+==================  Abstract Syntax Tree ================
+Node name : Root/Program. Program name is: nestedCaseExample
+Node name : Begin
+Node name : DeclarationList
+Node name : DeclarationList
+Node name : DeclarationList
+Node name : VariableDeclaration. Var name is: a
+Node name : SimpleType
+Type is : Integer
+Node name : VariableDeclaration. Var name is: b
+Node name : SimpleType
+Type is : Integer
+Node name : VariableDeclaration. Var name is: c
+Node name : SimpleType
+Type is : Integer
+Node name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :1
+Node name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :2
+Node name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :1
+Node name : StatementList
+Node name : CaseStatementNode name : IdeType
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : CaseStatementNode name : IdeType
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :5
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :6
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :4
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :5
+Node name : CaseListNode name : CaseNode name : StatementList
+Node name : AssignNode name : IdeType
+Node name : IntConst. Value is :5

@@ -1,0 +1,38 @@
+PROGRAM test12
+   a FIXED;
+   b FIXED;
+   c FIXED;
+   d BOOLEAN;
+   e FIXED;
+{
+    e = 2;
+    a = 14 -(8*(5-3));
+    b =a*a+(-a);
+    WHILE( (a - b) <= b )
+    {
+        c = 1;
+        CASE c OF
+        {
+            1: d = TRUE;
+            2:
+                CASE e OF
+                {
+                    1: WRITE (c);
+                    2:
+                        IF (a < b) THEN
+                            a = a + b;
+                        FI
+                    3:
+                        IF (FALSE) THEN
+                            WRITE (2);
+                        ELSE
+                            WRITE (a);
+                        FI
+                }
+        }
+    }
+    WRITE (a);
+    WRITE (b);
+    WRITE (c);
+    WRITE (d & (a - b > c));
+}

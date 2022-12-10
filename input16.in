@@ -1,0 +1,20 @@
+PROGRAM test16
+x FIXED;
+y FLOAT;
+z BOOLEAN;
+{
+    WHILE (x>=y)
+    {
+        z = TRUE;
+        WHILE(z)
+        {
+        x=88;
+        y = x / (x + 2);
+        z = y < x;
+        WRITE (z & (x == 88) | (y /= 3));
+        }
+    }
+    WHILE(NOT z){
+        x=55;
+    }
+}

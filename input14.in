@@ -1,0 +1,23 @@
+PROGRAM p
+a FIXED;
+b FIXED;
+c FIXED;
+{
+    a = 14;
+    b = a + 8;
+    WHILE(a /= b)
+    {
+        IF (a == 16) THEN
+            c = 9;
+        ELSE
+            IF (b == 22) THEN
+                c = -4;
+            FI
+            a = a + 2;
+            b = b + 1;
+            FI
+    }
+    WRITE (a);
+    WRITE (b);
+    WRITE (c);
+}

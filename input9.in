@@ -1,0 +1,33 @@
+PROGRAM yossi
+	a FIXED;
+	b FIXED;
+{
+	a=3;
+	CASE a OF
+	{
+		1:
+		    a=6;
+		    b=3;
+		    CASE b OF
+		    {
+		        1:b=4;
+		        2:b=5;
+		    }
+		2:a=10;
+		3:a=50;
+		4:a=30;
+	}
+	CASE b OF
+    {
+        1:b=20;
+        2:
+            CASE a OF
+            {
+                1:a=1;
+                2:a=2;
+                3:a=3;
+                4:a=4;
+            }
+        3:b=21;
+    }
+}

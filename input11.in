@@ -1,0 +1,7 @@
+PROGRAM p
+a FIXED;
+e FIXED;
+{
+    e =2;
+    a= 14-(8*(5-3));
+}
