@@ -78,6 +78,9 @@ int main(int argc, char* argv[])
 	writeAST(theProgram, treeFile);
 	Pcode(theProgram, pcodeFile);
 	treeFile.close();
+	// cout<<table->currentVarName<<endl;
+	// table->print();
+
 	return (0);
 }
 
