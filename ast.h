@@ -80,7 +80,7 @@
 #include <stdio.h>
 #include <typeinfo>
 #include <iomanip>
-
+#include <vector>
 
 //added
 using namespace std;
@@ -91,36 +91,62 @@ using namespace std;
 
 class Object {
 public:
- virtual void print (ostream& os) = 0;
- virtual void pcodegen(ostream& os) = 0;
- virtual Object * clone () const {return NULL;}
- virtual bool codel(ostream& os, int op){
-  return false;
- }
- virtual void coder(ostream& os){}
- virtual void switch_index(int x){}
- virtual ~Object () {}
- 
+  virtual void print (ostream& os) = 0;
+  virtual void pcodegen(ostream& os) = 0;
+  virtual Object * clone () const {return NULL;}
+  virtual bool codel(ostream& os, int op){return false;}
+  virtual void coder(ostream& os){}
+  virtual void switch_index(int x){}
+  virtual ~Object () {}
+  virtual int GetAddress(){};
+  virtual int GetSize() const{return size;};
+  virtual void SetSize(int _size){size = _size;};
+  virtual void GetVer(string& temp){  /*cout<<"change name in Object"<<endl;*/};
+  virtual int GetOverollSize() const{return this->size;};
+  virtual int GetSubpart() const{return this->subpart;};
+  virtual void SetSubpart(int subpart_){this->subpart = subpart_;};
+  virtual void Build_Dim_Vec(vector<int>& d) {d.push_back(1);}
+  virtual vector<int>& GetVec() {return this->d;};
+  virtual string GetClassName() const { return "Object"; };
+  virtual Object* GetType(){return NULL;};
+private:
+  int size = 0;
+  int subpart = 0;
+  vector<int> d;
 };
 
-//added
+
 class Variable{
 private:
   int size;
   int address;
   Object* type;
+  string id;
+  int rAddress = -5;   //also use as flag
+  int subpart;
+  vector<int> d;
+
 
 public:
   Variable(){}
-  Variable(int _size, int _address, Object* _type){
+  Variable(int _size, int _address, Object* _type, string _id, int _subpart, vector<int>& _d){        
     this->size = _size;
     this->address = _address;
     this->type = _type;
+    this->id = _id;
+    this->subpart = _subpart;   
+    this->d = _d;
+    this->rAddress;
   }
-  int getAddress(){
-    return this->address;
-  }
+  int GetAddress(){return this->address;}
+  int GetSize() const {return this->size;}
+  Object* GetType() const{return type;}
+  int GetSubpart() const{return subpart;}
+  int GetrAddress() const{return rAddress;} //also use as a flag
+  void SetrAddress(int a) {this->rAddress = a;}
+  vector<int>& GetD() {return this->d;}
   virtual ~Variable() {}
+  string& GetId(){return this->id;};
 };
 
 static int loopCounter = 1;
@@ -128,15 +154,33 @@ static int caseNum = 1;
 static int switchNum = 1;
 static int elseCounter = 1;
 
-
 class SymbolTable{
 public:
-int addressCounter = 5;
 string currentVarName;
 unordered_map<string, Variable> symT;
+void print(){
+ for(auto it = symT.begin(); it != symT.end(); ++it)
+  {
+    cout<<endl;
+    cout<<endl;
+    std::cout << "name: " << it->second.GetId()<<
+    " size: " << it->second.GetSize()<<
+    " type: "<< it->second.GetType()->GetClassName() <<
+    " address: "<< it->second.GetAddress() <<
+    " R address: "<< it->second.GetrAddress()<< "\n";
+    cout<<endl;
+    cout<<endl;
+  }
+}
+virtual ~SymbolTable() {};
 };
 
 extern SymbolTable* table;
+
+
+
+class Type : public Object {
+};
 
 class Expr : public Object {
 public :
@@ -309,18 +353,70 @@ public:
       dim_->print(os);
     }
   }
+
+  void GetVer(string& ver) {
+    // cout<<"change name DIm: "<<ver<<endl;
+    string n_Var;
+    this->ver_ = &table->symT[ver];
+    indexDim = 1;
+    if (this->ver_->GetD().size() == 0)
+    {
+      this->ver_->GetType()->GetVer(n_Var);
+      this->ver_ = &table->symT[n_Var];
+    }
+  }
+
+  void SetVer(Variable * ver) {
+    this->ver_ = ver;
+  }
+
   void pcodegen(ostream& os) {
-      assert(exp_);
-      exp_->pcodegen(os);
-      if (dim_) {
-          dim_->pcodegen(os);
+    assert(exp_);
+    exp_->codel(os, -5);
+    exp_->pcodegen(os);
+    exp_->coder(os);
+    int d = ver_->GetD().size();
+    auto v = ver_->GetD();
+    //os<<table->currentVarName<<endl;
+    //os<<"before for d: "<< d << endl;
+    //os<<"before for indexDim: "<< indexDim << endl;
+    for (int i = indexDim; i < d; i++){
+      //os<<"ixa v["<<i<<"] ="<< ixa << endl;
+      ixa *= v[i];
+    }
+    os<<"ixa "<< ixa << endl;
+    indexDim++;
+    if(indexDim == d){
+      indexDim = 1;
+      os<<"dec "<< ver_->GetSubpart()<<endl;
+      string v_name = "1";
+      ver_->GetType()->GetVer(v_name);
+      if (v_name != "1"){
+        ver_ = &table->symT[v_name];
+        if (ver_->GetD().size() == 0)
+        {
+          ver_->GetType()->GetVer(v_name);
+          ver_ = &table->symT[v_name];
+        }
       }
+    }
+    if (dim_) {
+      ((Dim*)(dim_))->SetVer(ver_);
+      ((Dim*)(dim_))->indexDim = this->indexDim;
+      dim_->pcodegen(os);
+     }
+  }
+
+  virtual void coder(ostream& os){
+    os<<"ind"<<endl;
   }
   virtual Object * clone () const { return new Dim(*this);}
-
+  int indexDim;
 private:
   Object * exp_;
   Object * dim_;
+  Variable * ver_;
+  int ixa = 1;
 };
 
 class Atom : public Object {
@@ -434,13 +530,26 @@ public :
   void pcodegen(ostream& os) {
       assert(var_ && dim_);
       var_->pcodegen(os);
+      var_->GetVer(name);
+      //os<<"name:    "<<name<<endl;
+      ((Dim*)dim_)->indexDim = 1;  
+      dim_->GetVer(name);
       dim_->pcodegen(os);
   }
+
+  virtual void coder(ostream& os){
+    os<<"ind"<<endl;
+  }
+
+  
   virtual Object * clone () const { return new ArrayRef(*this);}
 
+
+//when we init name?
 private:
   Object * var_;
   Object * dim_;
+  string name;
 };
 
 class RecordRef : public Var {
@@ -469,6 +578,14 @@ public :
   }
   virtual Object * clone () const { return new RecordRef(*this);}
 
+  int GetOverollSize() const{
+    return varIn_->GetOverollSize();
+  }
+
+  void coder(ostream& os){
+    os<<"ind"<<endl;
+  }
+
 private:
   Object * varExt_;
   Object * varIn_;
@@ -493,6 +610,13 @@ public :
   void pcodegen(ostream& os) {
       assert(var_);
       var_->pcodegen(os);
+      var_->coder(os);
+  }
+  void GetVer(string& temp){
+      var_->GetVer(temp);
+  }
+  void coder(ostream& os){
+      os<< "ind"<<endl;
   }
   virtual Object * clone () { return new AddressRef(*this);}
 
@@ -522,6 +646,8 @@ public :
   void pcodegen(ostream& os) {
       assert(var_);
       var_->pcodegen(os);
+      os<<"ldc "<< var_->GetOverollSize()<<endl;
+      os << "new" <<endl;
   }
   virtual Object * clone () { return new NewStatement(*this);}
   
@@ -576,10 +702,10 @@ public :
   }
   void pcodegen(ostream& os) {
       assert(exp_);
-      exp_->codel(os, 0);     // change to 283 next time
+      exp_->codel(os, 283);     
       exp_->pcodegen(os);
       exp_->coder(os);
-      os << "print" << endl;
+      os <<"print"<< endl;
   }
   virtual Object * clone () const { return new WriteVarStatement(*this);}
   
@@ -961,19 +1087,59 @@ public :
       var_decl_->pcodegen(os);
   }
   virtual Object * clone () const { return new RecordList(*this);}
-  
+
+  //added
+  int GetSize() const {
+    if(record_list_){
+       // cout<<endl;cout<<endl;
+    // cout<<"var dec: "<<var_decl_->GetSize()<<"record_list: "<<record_list_->GetSize()<<endl;
+    // cout<<endl; cout<<endl;
+      return record_list_->GetSize() + var_decl_->GetSize();
+  }    
+      // cout<<endl;
+      // cout<<endl;
+      // cout<<"record list null: "<<var_decl_->GetSize()<<endl;
+      // cout<<endl;
+      // cout<<endl;
+     return var_decl_->GetSize();
+
+  }
+
+  void updateRAddress(int address){
+    string name_;
+    // cout<<"lastVar "<<table->currentVarName<<endl;
+    if (record_list_){
+      record_list_->GetVer(name_);
+        //  cout<<"name: "<<name_<<endl;
+      Variable* v = &table->symT[name_];
+      //  cout<<"name v : "<<v->GetId()<<endl;
+      v->SetrAddress(address);
+      // cout<<endl; cout<<endl;
+      // cout<<"updateRAddress: "<<v->GetSize()<<endl;
+      // cout<<endl; cout<<endl;
+      ((RecordList*)var_decl_)->updateRAddress(address+v->GetSize());
+      // cout<<endl; cout<<endl;
+      // cout<<i++<<"updatedddRAddress: "<<v->GetrAddress()<<endl;
+      // cout<<endl; cout<<endl;
+    }else{
+      var_decl_->GetVer(name_);
+      Variable * v = &table->symT[name_];
+      v->SetrAddress(address);
+    }
+  }
+
+ 
 private:
   Object * var_decl_;
   Object * record_list_;
 };
 
-class Type : public Object {
-};
 
 class SimpleType : public Type {
 public:
   SimpleType (const char * name) { 
 		name_ = new string(name); 
+    SetSize(1);
 	}
 
   virtual ~SimpleType () {
@@ -982,6 +1148,7 @@ public:
 
   SimpleType(const SimpleType& s){
     name_ = new string(*s.name_);
+    SetSize(1);
   }
 
   void print (ostream& os) {
@@ -990,6 +1157,7 @@ public:
 	}
   void pcodegen(ostream& os) {
   }
+
   virtual Object * clone () const { return new SimpleType(*this);}
 
 private:
@@ -1000,32 +1168,55 @@ class IdeType : public Type {
 public:
   IdeType (const char * name) { 
     name_ = new string(name); 
+    Variable v = table->symT[*name_];
+    SetSize(v.GetSize());
   }
-  
+
   virtual ~IdeType () {
     if (name_) delete name_;
   }
 
   IdeType(const IdeType& s){
     name_ = new string(*s.name_);
+    Variable v = table->symT[*name_];
+    SetSize(v.GetSize());
   }
+
   void coder(ostream& os){
     os<<"ind"<<endl;
+  }
+
+  void GetVer(string& temp){
+    temp = *name_;
+    // cout<<"change name in IdeType: "<< temp<<endl;
+
+  }
+  void Build_Dim_Vec(vector<int>& d) {
+    Variable& v = table->symT[*name_];
+    d.push_back(v.GetSize());
   }
 
   void print (ostream& os) {
     os<<"Node name : IdeType"<<endl;
   }
   void pcodegen(ostream& os) {
-    int address;
-    if (table->symT.find(*name_) == table->symT.end()){
-        os << "unknow varible "<< endl;
+    Variable v = table->symT[*name_];
+    int address = v.GetrAddress();
+    if (v.GetrAddress() != -5){
+        os << "inc ";
+        os<<address<<endl;
     }
     else{
-      address = table->symT[*name_].getAddress();
-      os << "ldc " << address << endl;
+      os << "ldc ";
+      os<<v.GetAddress()<<endl;
     }
   }
+
+    int GetOverollSize() const {
+    Variable v = table->symT[*name_];
+    return v.GetType()->GetOverollSize();
+  }
+
   virtual Object * clone () const { return new IdeType(*this);}
 
 private:
@@ -1034,16 +1225,42 @@ private:
 
 class ArrayType : public Type {
 public :
-  ArrayType (int l,int u, Object * type) : low_(l),up_(u),type_(type)  { assert(type_);}
+  ArrayType (int l,int u, Object * type) : low_(l),up_(u),type_(type)  {
+    assert(type_);
+    SetSize((up_-low_+1)*type_->GetSize());
+    this->SetSubpart(low_*type_->GetSize()+type_->GetSubpart());
+    this->Build_Dim_Vec(this->GetVec());
+     }
   
+  virtual string GetClassName() const { return "ArrayType"; };
+
+  Object* GetType(){
+    return type_;
+  }
+
+   void GetVer(string& temp){
+    // cout<<type_->GetClassName()<<endl;
+    // cout<<temp<<endl;
+    type_->GetVer(temp);
+    // cout<<"change name in ArrayType: "<< temp<<endl;
+  }
+
   ArrayType(const ArrayType& a) : low_(a.low_), up_(a.up_){
     type_ = a.type_->clone();
+    SetSize((up_-low_+1)*type_->GetSize());
+    this->SetSubpart(low_*type_->GetSize()+type_->GetSubpart());
+    this->Build_Dim_Vec(this->GetVec());
   }
 
   virtual ~ArrayType () {
     if (type_) delete type_;
   }
 
+  void Build_Dim_Vec(vector<int>& d) {
+    d.push_back(up_-low_+1);
+    if (type_)
+      type_->Build_Dim_Vec(d);
+  }
   void print (ostream& os) {
 		os<<"Node name : ArrayType: low bound is: "<<low_<<", up bound is: "<<up_<<endl;
 	  assert(type_);
@@ -1053,6 +1270,7 @@ public :
       assert(type_);
       type_->pcodegen(os);
   }
+
   virtual Object * clone () const { return new ArrayType(*this);}
 
 private:
@@ -1062,7 +1280,14 @@ private:
 
 class RecordType : public Type {
 public :
-  RecordType (Object * record_list) : record_list_(record_list)  { assert(record_list_);}
+  RecordType (Object * record_list) : record_list_(record_list)  { 
+    assert(record_list_);
+    SetSize(record_list_->GetSize());
+    ((RecordList*)record_list_)->updateRAddress(0);
+    }
+
+  RecordType ()  {}; //d'ctor  
+
 
   RecordType(const RecordType& y){
     record_list_ = y.record_list_->clone();
@@ -1079,11 +1304,23 @@ public :
   }
   void pcodegen(ostream& os) {
     //std::cout << "check record type" << std::endl;
-
       assert(record_list_);
       record_list_->pcodegen(os);
   }
   virtual Object * clone () const { return new RecordType(*this);}
+  virtual int GetAddress() {
+    int a;
+    Variable v = table->symT[table->currentVarName];
+    a = v.GetAddress() + v.GetSize();
+    // cout<<endl;     cout<<endl;
+
+    // cout<<"     ver:"<<a<<"     record_list size:"<<record_list_->GetSize()<<endl;
+    // cout<<endl; 
+
+    return  a - record_list_->GetSize();
+} 
+
+virtual string GetClassName() const { return "RecordType"; };
 
 private:
   Object * record_list_;
@@ -1092,16 +1329,30 @@ private:
 
 class AddressType : public Type {
 public :
-  AddressType (Object * type) : type_(type)  { assert(type_);}
+  AddressType (Object * type) : type_(type) { 
+    assert(type_);
+    SetSize(1);
+    SetSubpart(type_->GetSubpart());
+    this->GetVec() = type_->GetVec();
+    }
 
   AddressType(const AddressType& t){
     type_ = t.type_->clone();
+    SetSize(1);
+  }
+
+  void GetVer(string& temp){
+      type_->GetVer(temp);
   }
 
   virtual ~AddressType () {
     if (type_) delete type_;
   }
   
+  int GetOverollSize() const{
+    return type_->GetOverollSize();
+  }
+
   void print (ostream& os) {
 		os<<"Node name : AddressType"<<endl;
 	  assert(type_);
@@ -1111,6 +1362,14 @@ public :
       assert(type_);
       type_->pcodegen(os);
   }
+
+  virtual string GetClassName() const { 
+  //   cout<<endl; cout<<endl;
+  //       cout<<"address type:: "<<type_->GetClassName()<<endl;
+  // cout<<endl;cout<<endl;
+    return type_->GetClassName();
+     };
+
   virtual Object * clone () const { return new AddressType(*this);}
 
 private:
@@ -1126,22 +1385,80 @@ public:
   VariableDeclaration (Object * type, const char * str) : type_(type){
     assert(type_);
     name_ = new string(str);
+    // table->print();
     //added
-    if (table->symT.empty()){
-      Variable* currentVar = new Variable(1, table->addressCounter++, type_);
-      table->symT.insert(make_pair(*name_,*currentVar));
-      table->currentVarName = *name_;
-    } else{
-      int address = table->symT[table->currentVarName].getAddress() + 1;
-      Variable* cVar = new Variable(1, address, type_);
-      table->symT.insert(make_pair(*name_,*cVar));
-      table->currentVarName = *name_;
-    }  
+    //  cout<<endl;cout<<endl;
+    //   cout<<*name_<<endl;
+    //   cout<<endl;cout<<endl;
+    AddToTable(*name_, type_);
+  }
+
+  int GetOverollAddress(){
+   if (table->symT.empty()){
+      return 5;
+  }
+  else{
+      Variable v = table->symT[table->currentVarName];
+      // cout<<endl;
+      //       cout<<endl;
+      // cout<<table->currentVarName<<endl;
+      // cout<< v.GetAddress()<< "+"<< v.GetSize()<<endl;
+      //       cout<<endl;
+      // cout<<endl;
+      return  v.GetAddress() + v.GetSize();
+    }
+}
+  void AddToTable(string &name_, Object * type_){
+      //    cout<<endl;cout<<endl;
+      // cout<<"addtotablename: "<<name_<<endl;
+      // cout<<endl;cout<<endl;
+    SetSize(type_->GetSize());
+      // cout<<endl;cout<<endl;
+      // cout<<"beforeGetOverollAddress: " <<type_->GetAddress()<<endl;
+      // cout<<endl;cout<<endl;
+    int address = GetOverollAddress();
+
+    if (type_->GetClassName() == "RecordType") {
+        address = type_->GetAddress();
+    }
+    //             cout<<endl;
+    //         cout<<endl;
+
+    // cout<<"           1111  "<<address<<"       "<<endl;
+    //             cout<<endl;
+    //         cout<<endl;
+    Variable currentVar = Variable(type_->GetSize(), address, type_,
+    name_, type_->GetSubpart(),type_->GetVec());
+    table->symT[name_] =  currentVar;
+    // table->symT.insert(make_pair(name_, currentVar));
+    //   cout<<endl;
+    // cout<<endl;
+ if (table->symT.end() == table->symT.find(name_)){
+          cout<<endl; cout<<"ver not found"<<endl;
+ }
+//  cout<<"beforee instert"<<endl;
+//    std::cout << "name: " << currentVar.GetId() << " size: " << currentVar.GetSize()<<
+//     " address: "<< currentVar.GetAddress() << "\n";
+//     cout<<endl;
+//     cout<<endl;
+
+    // Variable temp  = table->symT[name_];
+    // std::cout << "name: " << temp.GetId() << " size: " << temp.GetSize()<<
+    // " address: "<< temp.GetAddress() << "\n";
+    // cout<<endl;
+    // cout<<endl;
+    table->currentVarName = name_;
+  }
+
+  void GetVer(string& temp){
+    //  cout<<"change name in VariableDeclaration: "<<temp<<endl;
+    temp = *name_;
   }
 
   VariableDeclaration(const VariableDeclaration& p){
     type_ = p.type_->clone();
-    name_ = new string(*p.name_);
+    name_ = new string(*p.name_); 
+    AddToTable(*name_, type_);
   }
 
   virtual ~VariableDeclaration () {
@@ -1156,7 +1473,8 @@ public:
   }
   void pcodegen(ostream& os) {
       assert(type_);
-      type_->pcodegen(os);
+      // make problem
+      // type_->pcodegen(os);
   }
   virtual Object * clone () const { return new VariableDeclaration(*this);}
 
